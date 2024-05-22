@@ -1,3 +1,5 @@
+
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -5,9 +7,11 @@ from django.contrib.auth.models import User
 
 
 class UserDataStatuses(models.IntegerChoices):
-    ACITVE = 1, 'принимает предложения'
-    SEARCHING = 2, 'в активном поиске'
-    BUSY = 3, 'не рассматривает предложения'
+    ACITVE = 1, 'активно ищу работу'
+    LOOKING = 2, 'рассматриваю входящие предложения'
+    THINKING = 3, 'предложили работу, пока думаю'
+    FOUND = 4, 'уже выхожу на новое место'
+    BUSY = 5, 'не ищу работу'
 
 class SexChoises(models.IntegerChoices):
     MALE = 1, "мужской"
@@ -43,10 +47,41 @@ class UserData(models.Model):
     phone = models.CharField(max_length=15, verbose_name="телефон")
     status = models.IntegerField(verbose_name="статус", choices=UserDataStatuses.choices)
     region = models.ForeignKey(Region, verbose_name="регион", null=True, blank=True, on_delete=models.SET_NULL)
-
+    vacancies = models.ManyToManyField('portfolio.Vacancy', verbose_name="отклики")
+    
     class Meta:
         verbose_name = 'данные пользователя'
         verbose_name_plural = 'данные пользователей'
+
+
+class Vacancy(models.Model):
+    job_title = models.ForeignKey('portfolio.JobTitle', null=True, blank=True, on_delete=models.SET_NULL, verbose_name="должность")
+    min_wage = models.IntegerField(verbose_name="минимальная з/п/мес")
+    max_wage = models.IntegerField(verbose_name="максимальная з/п/мес")
+    description = models.TextField(verbose_name="описание")
+    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель")
+    skills = models.ManyToManyField('portfolio.Skill', verbose_name="требуемые навыки")
+
+    class Meta:
+        verbose_name = 'вакансия'
+        verbose_name_plural = 'вакаснии'
+
+class Skill(models.Model):
+    name = models.TextField(verbose_name="навык")
+
+    class Meta:
+        verbose_name = 'навык'
+        verbose_name_plural = 'навыки'
+
+    def __str__(self) -> str:
+        return self.name
+
+class Country(models.Model):
+    name = models.TextField(verbose_name="страна")
+
+    class Meta:
+        verbose_name = 'страна'
+        verbose_name_plural = 'страны'
 
 
 class Resume(models.Model):
@@ -56,24 +91,19 @@ class Resume(models.Model):
     sex = models.IntegerField(verbose_name="пол", choices=SexChoises.choices)
     date_birth = models.DateField(verbose_name="дата рождения", null=True, blank=True)
     phone = models.CharField(max_length=15, verbose_name="телефон", null=True, blank=True)
-    citizenship1= models.CharField(max_length=255, verbose_name="гражданство", null=True, blank=True) # поправить
-    citizenship2 = models.CharField(max_length=255, null=True, blank=True, verbose_name="гражданство")
-    citizenship3 = models.CharField(max_length=255, null=True, blank=True, verbose_name="гражданство")
+    citizenship1= models.ForeignKey(Country, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="гражданство",related_name="citizenship1") # поправить
+    citizenship2 = models.ForeignKey(Country, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="гражданство2",related_name="citizenship2")
+    citizenship3 = models.ForeignKey(Country, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="гражданство3",related_name="citizenship3")
+    skills = models.ManyToManyField('portfolio.Skill', verbose_name="навыки")
 
     class Meta:
         verbose_name = 'резюме'
         verbose_name_plural = 'резюме'
 
 
-class Skill(models.Model):
-    name = models.TextField(verbose_name="навык")
-
-    class Meta:
-        verbose_name = 'навык'
-        verbose_name_plural = 'навыки'
-
 class Review(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="пользователь")
+    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, default=None, verbose_name="работодатель", related_name="employer_review")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, default=None, verbose_name="кандидат", related_name="candidate_review")    
     time = models.DateTimeField(verbose_name="время создания")
     mark = models.IntegerField(verbose_name="оценка", choices=MarkShoises.choices)
     text = models.TextField(verbose_name="текст")
@@ -82,12 +112,6 @@ class Review(models.Model):
         verbose_name = 'отзыв'
         verbose_name_plural = 'отзывы'
 
-class Country(models.Model):
-    name = models.TextField(verbose_name="страна")
-
-    class Meta:
-        verbose_name = 'страна'
-        verbose_name_plural = 'страны'
 
 class Specialization(models.Model):
     name = models.TextField(verbose_name="специализация")
@@ -103,12 +127,16 @@ class JobTitle(models.Model):
         verbose_name = 'должность'
         verbose_name_plural = 'должности'
 
+    def __str__(self) -> str:
+        return self.name
+
 class Education(models.Model):
-    type = models.IntegerField(verbose_name="вид образования", choices=EducationTypeChoises.choices)
+    resume = models.ForeignKey(Resume,  on_delete=models.CASCADE, default=None, verbose_name="резюме")
+    type_ed = models.IntegerField(verbose_name="вид образования", choices=EducationTypeChoises.choices)
     name_institution = models.TextField(verbose_name="название учебного заведения")
     faculty = models.TextField(verbose_name="факультет")
     end_year = models.DateField(verbose_name="дата выпуска")
-    specialization = models.ForeignKey(Specialization, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="пользователь")
+    specialization = models.ForeignKey(Specialization, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="специальность")
     
     class Meta:
         verbose_name = 'образование'
@@ -116,6 +144,7 @@ class Education(models.Model):
 
 
 class Experience(models.Model):
+    resume = models.ForeignKey(Resume,  on_delete=models.CASCADE, default=None, verbose_name="резюме")
     name_company = models.TextField(verbose_name="название компании")
     text = models.TextField(verbose_name="обязанности и достижения")
     date_begin = models.DateField(verbose_name="дата начала")
@@ -138,25 +167,16 @@ class SocialNetworks(models.Model):
 
 class EmployerData(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name_company = models.TextField(verbose_name="название компании", default="")
     phone = models.CharField(max_length=15, verbose_name="телефон")
     verification  = models.BooleanField(verbose_name="верификация")
     region = models.ForeignKey(Region, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="регион")
-    social_networks = models.ForeignKey(SocialNetworks, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="социальные сети")
+    # social_networks = models.ForeignKey(SocialNetworks, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="социальные сети")
 
     class Meta:
         verbose_name = 'работодатель'
         verbose_name_plural = 'работодатели'
 
-class Vacancy(models.Model):
-    job_title = models.ForeignKey(JobTitle, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="должность")
-    min_wage = models.IntegerField(verbose_name="минимальная з/п")
-    max_wage = models.IntegerField(verbose_name="максимальная з/п")
-    description = models.TextField(verbose_name="описание")
-    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель")
-
-    class Meta:
-        verbose_name = 'вакансия'
-        verbose_name_plural = 'вакаснии'
 
 class Chat(models.Model):
     emloyer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель", related_name="employer_chat")
@@ -169,11 +189,9 @@ class Chat(models.Model):
 
 class Message(models.Model):
     created_at = models.DateTimeField(verbose_name="время создания")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="отправитель")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="отправитель")
     text = models.TextField(verbose_name="текст")
-
-    
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, default=None, verbose_name="чат")
     class Meta:
         verbose_name = 'сообщение'
         verbose_name_plural = 'сообщения'
-
