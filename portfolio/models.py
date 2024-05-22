@@ -18,7 +18,7 @@ class SexChoises(models.IntegerChoices):
     FEMALE = 2, "женский"
     NOT_STATED = 3, "не указан"
 
-class MarkShoises(models.IntegerChoices):
+class MarkChoises(models.IntegerChoices):
     ONE = 1, "ужасно"
     TWO = 2, "плохо"
     THREE = 3, "средне"
@@ -56,10 +56,10 @@ class UserData(models.Model):
 
 class Vacancy(models.Model):
     job_title = models.ForeignKey('portfolio.JobTitle', null=True, blank=True, on_delete=models.SET_NULL, verbose_name="должность")
-    min_wage = models.IntegerField(verbose_name="минимальная з/п/мес")
-    max_wage = models.IntegerField(verbose_name="максимальная з/п/мес")
-    description = models.TextField(verbose_name="описание")
-    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель")
+    min_wage = models.IntegerField(verbose_name="минимальная з/п/мес", null=True, blank=True, default=None)
+    max_wage = models.IntegerField(verbose_name="максимальная з/п/мес", null=True, blank=True, default=None)
+    description = models.TextField(verbose_name="описание", null=True, blank=True, default=None)
+    employer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель")
     skills = models.ManyToManyField('portfolio.Skill', verbose_name="требуемые навыки")
 
     class Meta:
@@ -102,10 +102,10 @@ class Resume(models.Model):
 
 
 class Review(models.Model):
-    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, default=None, verbose_name="работодатель", related_name="employer_review")
+    employer = models.ForeignKey(User, on_delete=models.CASCADE, default=None, verbose_name="работодатель", related_name="employer_review")
     user = models.ForeignKey(User, on_delete=models.CASCADE, default=None, verbose_name="кандидат", related_name="candidate_review")    
-    time = models.DateTimeField(verbose_name="время создания")
-    mark = models.IntegerField(verbose_name="оценка", choices=MarkShoises.choices)
+    time = models.DateTimeField(verbose_name="время создания", auto_now_add=True)
+    mark = models.IntegerField(verbose_name="оценка", choices=MarkChoises.choices)
     text = models.TextField(verbose_name="текст")
 
     class Meta:
@@ -169,9 +169,8 @@ class EmployerData(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     name_company = models.TextField(verbose_name="название компании", default="")
     phone = models.CharField(max_length=15, verbose_name="телефон")
-    verification  = models.BooleanField(verbose_name="верификация")
-    region = models.ForeignKey(Region, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="регион")
-    # social_networks = models.ForeignKey(SocialNetworks, null=True, blank=True, on_delete=models.SET_NULL, verbose_name="социальные сети")
+    verification  = models.BooleanField(verbose_name="верификация", default=True)
+    region = models.ForeignKey(Region, null=True, blank=True, default=None, on_delete=models.SET_NULL, verbose_name="регион")
 
     class Meta:
         verbose_name = 'работодатель'
@@ -179,7 +178,7 @@ class EmployerData(models.Model):
 
 
 class Chat(models.Model):
-    emloyer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель", related_name="employer_chat")
+    employer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="работодатель", related_name="employer_chat")
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="кандидат", related_name="candidate_chat")
     created_at = models.DateTimeField(verbose_name="время создания")
 
